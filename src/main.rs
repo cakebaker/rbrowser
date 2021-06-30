@@ -21,14 +21,20 @@ fn main() {
         }
     };
 
-    let result = Browser::request(&url);
-    println!("{:?}", result);
+    Browser::load(&url);
 }
 
 #[derive(Debug)]
 struct Browser {}
 
 impl Browser {
+    pub fn load(url: &Url) {
+        match Self::request(url) {
+            Ok((_, body)) => Self::show(&body),
+            Err(e) => eprintln!("{}", e),
+        }
+    }
+
     pub fn request(url: &Url) -> io::Result<(Vec<String>, String)> {
         let mut body = String::new();
         let mut headers = Vec::new();
@@ -56,6 +62,19 @@ impl Browser {
             body = lines.collect();
         }
         Ok((headers, body))
+    }
+
+    pub fn show(body: &str) {
+        let mut in_angle = false;
+
+        for c in body.chars() {
+            match c {
+                '<' => in_angle = true,
+                '>' => in_angle = false,
+                _ if !in_angle => print!("{}", c),
+                _ => {}
+            }
+        }
     }
 }
 
