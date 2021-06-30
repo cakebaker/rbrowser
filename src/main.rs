@@ -1,6 +1,7 @@
 #![warn(clippy::all, clippy::nursery, clippy::pedantic)]
 
 use std::env;
+use std::net::TcpStream;
 
 fn main() {
     let mut args = env::args();
@@ -18,7 +19,10 @@ fn main() {
         }
     };
 
-    println!("{:?}", url);
+    match TcpStream::connect(url.host + ":80") {
+        Ok(_) => println!("Connected"),
+        Err(e) => eprintln!("{}", e),
+    }
 }
 
 #[derive(Debug)]
