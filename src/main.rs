@@ -1,6 +1,7 @@
 #![warn(clippy::all, clippy::nursery, clippy::pedantic)]
 
 use std::env;
+use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
@@ -28,38 +29,35 @@ fn main() {
 struct Browser {}
 
 impl Browser {
-    pub fn request(url: Url) -> (Vec<String>, Vec<String>) {
+    pub fn request(url: Url) -> io::Result<(Vec<String>, Vec<String>)> {
         let mut body = Vec::new();
         let mut headers = Vec::new();
 
-        match TcpStream::connect(url.host.clone() + ":80") {
-            Ok(mut stream) => {
-                write!(
-                    stream,
-                    "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
-                    url.path, url.host
-                );
-                let mut response = String::new();
-                stream.read_to_string(&mut response);
+        if let Ok(mut stream) = TcpStream::connect(url.host.clone() + ":80") {
+            write!(
+                stream,
+                "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
+                url.path, url.host
+            )?;
+            let mut response = String::new();
+            stream.read_to_string(&mut response)?;
 
-                let mut lines = response.lines();
-                let status_line = lines.next().unwrap();
+            let mut lines = response.lines();
+            let status_line = lines.next().unwrap();
 
-                loop {
-                    let line = lines.next().unwrap();
-                    if line.is_empty() {
-                        break;
-                    }
-                    headers.push(line.to_string());
+            loop {
+                let line = lines.next().unwrap();
+                if line.is_empty() {
+                    break;
                 }
-
-                for line in lines {
-                    body.push(line.to_string());
-                }
+                headers.push(line.to_string());
             }
-            Err(e) => eprintln!("{}", e),
+
+            for line in lines {
+                body.push(line.to_string());
+            }
         }
-        (headers, body)
+        Ok((headers, body))
     }
 }
 
