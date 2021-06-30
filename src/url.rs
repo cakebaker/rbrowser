@@ -18,4 +18,3 @@ impl Url {
         Self { host, path }
     }
 }
-
