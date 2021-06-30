@@ -1,9 +1,13 @@
 #![warn(clippy::all, clippy::nursery, clippy::pedantic)]
 
+mod url;
+
 use std::env;
 use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+
+use crate::url::Url;
 
 fn main() {
     let mut args = env::args();
@@ -75,26 +79,5 @@ impl Browser {
                 _ => {}
             }
         }
-    }
-}
-
-#[derive(Debug)]
-struct Url {
-    host: String,
-    path: String,
-}
-
-impl Url {
-    pub fn new(url: &str) -> Self {
-        let url = &url["http://".len()..];
-        let mut elements = url.splitn(2, |e| e == '/');
-
-        let host = elements.next().unwrap().to_owned();
-        let path = match elements.next() {
-            Some(path) => "/".to_owned() + path,
-            None => "/".to_owned(),
-        };
-
-        Self { host, path }
     }
 }
