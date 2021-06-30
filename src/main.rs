@@ -1,6 +1,7 @@
 #![warn(clippy::all, clippy::nursery, clippy::pedantic)]
 
 use std::env;
+use std::io::{Read, Write};
 use std::net::TcpStream;
 
 fn main() {
@@ -19,8 +20,17 @@ fn main() {
         }
     };
 
-    match TcpStream::connect(url.host + ":80") {
-        Ok(_) => println!("Connected"),
+    match TcpStream::connect(url.host.clone() + ":80") {
+        Ok(mut stream) => {
+            write!(
+                stream,
+                "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
+                url.path, url.host
+            );
+            let mut response = String::new();
+            stream.read_to_string(&mut response);
+            println!("{}", response);
+        }
         Err(e) => eprintln!("{}", e),
     }
 }
