@@ -29,7 +29,22 @@ fn main() {
             );
             let mut response = String::new();
             stream.read_to_string(&mut response);
-            println!("{}", response);
+
+            let mut lines = response.lines();
+            let status_line = lines.next().unwrap();
+            println!("{}", status_line);
+
+            loop {
+                let line = lines.next().unwrap();
+                if line.is_empty() {
+                    break;
+                }
+                println!("{}", line);
+            }
+
+            for line in lines {
+                println!("{}", line);
+            }
         }
         Err(e) => eprintln!("{}", e),
     }
