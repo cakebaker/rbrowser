@@ -21,7 +21,7 @@ fn main() {
         }
     };
 
-    let result = Browser::request(url);
+    let result = Browser::request(&url);
     println!("{:?}", result);
 }
 
@@ -29,7 +29,7 @@ fn main() {
 struct Browser {}
 
 impl Browser {
-    pub fn request(url: Url) -> io::Result<(Vec<String>, Vec<String>)> {
+    pub fn request(url: &Url) -> io::Result<(Vec<String>, Vec<String>)> {
         let mut body = Vec::new();
         let mut headers = Vec::new();
 
