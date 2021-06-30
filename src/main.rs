@@ -29,8 +29,8 @@ fn main() {
 struct Browser {}
 
 impl Browser {
-    pub fn request(url: &Url) -> io::Result<(Vec<String>, Vec<String>)> {
-        let mut body = Vec::new();
+    pub fn request(url: &Url) -> io::Result<(Vec<String>, String)> {
+        let mut body = String::new();
         let mut headers = Vec::new();
 
         if let Ok(mut stream) = TcpStream::connect(url.host.clone() + ":80") {
@@ -53,9 +53,7 @@ impl Browser {
                 headers.push(line.to_string());
             }
 
-            for line in lines {
-                body.push(line.to_string());
-            }
+            body = lines.collect();
         }
         Ok((headers, body))
     }
