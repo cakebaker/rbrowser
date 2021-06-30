@@ -20,33 +20,46 @@ fn main() {
         }
     };
 
-    match TcpStream::connect(url.host.clone() + ":80") {
-        Ok(mut stream) => {
-            write!(
-                stream,
-                "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
-                url.path, url.host
-            );
-            let mut response = String::new();
-            stream.read_to_string(&mut response);
+    let result = Browser::request(url);
+    println!("{:?}", result);
+}
 
-            let mut lines = response.lines();
-            let status_line = lines.next().unwrap();
-            println!("{}", status_line);
+#[derive(Debug)]
+struct Browser {}
 
-            loop {
-                let line = lines.next().unwrap();
-                if line.is_empty() {
-                    break;
+impl Browser {
+    pub fn request(url: Url) -> (Vec<String>, Vec<String>) {
+        let mut body = Vec::new();
+        let mut headers = Vec::new();
+
+        match TcpStream::connect(url.host.clone() + ":80") {
+            Ok(mut stream) => {
+                write!(
+                    stream,
+                    "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
+                    url.path, url.host
+                );
+                let mut response = String::new();
+                stream.read_to_string(&mut response);
+
+                let mut lines = response.lines();
+                let status_line = lines.next().unwrap();
+
+                loop {
+                    let line = lines.next().unwrap();
+                    if line.is_empty() {
+                        break;
+                    }
+                    headers.push(line.to_string());
                 }
-                println!("{}", line);
-            }
 
-            for line in lines {
-                println!("{}", line);
+                for line in lines {
+                    body.push(line.to_string());
+                }
             }
+            Err(e) => eprintln!("{}", e),
         }
-        Err(e) => eprintln!("{}", e),
+        (headers, body)
     }
 }
 
