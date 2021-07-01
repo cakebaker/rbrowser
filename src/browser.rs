@@ -18,8 +18,9 @@ impl Browser {
     pub fn request(url: &Url) -> io::Result<(Vec<String>, String)> {
         let mut body = String::new();
         let mut headers = Vec::new();
+        let url_to_connect = format!("{}:{}", url.host, url.port);
 
-        if let Ok(mut stream) = TcpStream::connect(url.host.clone() + ":80") {
+        if let Ok(mut stream) = TcpStream::connect(url_to_connect) {
             write!(
                 stream,
                 "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
