@@ -16,32 +16,31 @@ impl Browser {
     }
 
     pub fn request(url: &Url) -> io::Result<(Vec<String>, String)> {
-        let mut body = String::new();
-        let mut headers = Vec::new();
         let url_to_connect = format!("{}:{}", url.host, url.port);
 
-        if let Ok(mut stream) = TcpStream::connect(url_to_connect) {
-            write!(
-                stream,
-                "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
-                url.path, url.host
-            )?;
-            let mut response = String::new();
-            stream.read_to_string(&mut response)?;
+        let mut stream = TcpStream::connect(url_to_connect)?;
+        write!(
+            stream,
+            "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
+            url.path, url.host
+        )?;
+        let mut response = String::new();
+        stream.read_to_string(&mut response)?;
 
-            let mut lines = response.lines();
-            let status_line = lines.next().unwrap();
+        let mut lines = response.lines();
+        let status_line = lines.next().unwrap();
 
-            loop {
-                let line = lines.next().unwrap();
-                if line.is_empty() {
-                    break;
-                }
-                headers.push(line.to_string());
+        let mut headers = Vec::new();
+        loop {
+            let line = lines.next().unwrap();
+            if line.is_empty() {
+                break;
             }
-
-            body = lines.collect();
+            headers.push(line.to_string());
         }
+
+        let body: String = lines.collect();
+
         Ok((headers, body))
     }
 
