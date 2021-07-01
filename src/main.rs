@@ -12,17 +12,15 @@ fn main() {
     let mut args = env::args();
     args.next();
 
-    let url = match args.next() {
-        Some(arg) if arg.starts_with("http://") => Url::new(&arg),
-        None => {
-            println!("Usage: rbrowser <URL>");
-            return;
-        }
-        _ => {
-            println!("URL must start with 'http://'");
-            return;
-        }
+    let url = if let Some(arg) = args.next() {
+        Url::new(&arg)
+    } else {
+        println!("Usage: rbrowser <URL>");
+        return;
     };
 
-    Browser::load(&url);
+    match url {
+        Ok(url) => Browser::load(&url),
+        Err(e) => eprintln!("{}", e),
+    }
 }
