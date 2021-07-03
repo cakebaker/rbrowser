@@ -1,7 +1,9 @@
+use openssl::ssl::{SslConnector, SslMethod};
 use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
+use crate::url::Scheme;
 use crate::url::Url;
 
 #[derive(Debug)]
@@ -9,16 +11,24 @@ pub struct Browser {}
 
 impl Browser {
     pub fn load(url: &Url) {
-        match Self::request(url) {
+        let url_to_connect = format!("{}:{}", url.host, url.port);
+        let stream = TcpStream::connect(url_to_connect).unwrap();
+
+        let result = if url.scheme == Scheme::Https {
+            let connector = SslConnector::builder(SslMethod::tls()).unwrap().build();
+            let stream = connector.connect(&url.host, stream).unwrap();
+            Self::request(url, stream)
+        } else {
+            Self::request(url, stream)
+        };
+
+        match result {
             Ok((_, body)) => Self::show(&body),
             Err(e) => eprintln!("{}", e),
         }
     }
 
-    pub fn request(url: &Url) -> io::Result<(Vec<String>, String)> {
-        let url_to_connect = format!("{}:{}", url.host, url.port);
-
-        let mut stream = TcpStream::connect(url_to_connect)?;
+    pub fn request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<(Vec<String>, String)> {
         write!(
             stream,
             "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
