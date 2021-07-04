@@ -31,7 +31,7 @@ impl Browser {
     pub fn request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<(Vec<String>, String)> {
         write!(
             stream,
-            "GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
+            "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
             url.path, url.host
         )?;
         let mut response = String::new();
