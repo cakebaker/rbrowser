@@ -16,6 +16,9 @@ impl fmt::Display for Scheme {
     }
 }
 
+const DEFAULT_HTTP_PORT: u16 = 80;
+const DEFAULT_HTTPS_PORT: u16 = 443;
+
 #[derive(Debug)]
 pub struct Url {
     pub scheme: Scheme,
@@ -35,8 +38,8 @@ impl Url {
         };
 
         let mut port = match scheme {
-            Scheme::Http => 80,
-            Scheme::Https => 443,
+            Scheme::Http => DEFAULT_HTTP_PORT,
+            Scheme::Https => DEFAULT_HTTPS_PORT,
         };
 
         let mut host_and_path = scheme_and_rest[1].splitn(2, '/');
@@ -74,7 +77,7 @@ mod tests {
         let url = Url::new("http://example.org/path").unwrap();
         assert_eq!(Scheme::Http, url.scheme);
         assert_eq!("example.org", url.host);
-        assert_eq!(80, url.port);
+        assert_eq!(DEFAULT_HTTP_PORT, url.port);
         assert_eq!("/path", url.path);
     }
 
@@ -83,7 +86,7 @@ mod tests {
         let url = Url::new("https://example.org/path").unwrap();
         assert_eq!(Scheme::Https, url.scheme);
         assert_eq!("example.org", url.host);
-        assert_eq!(443, url.port);
+        assert_eq!(DEFAULT_HTTPS_PORT, url.port);
         assert_eq!("/path", url.path);
     }
 
