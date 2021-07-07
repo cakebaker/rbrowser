@@ -56,7 +56,8 @@ impl Browser {
 
     pub fn show(s: &str) {
         let body = Self::get_body(s);
-        println!("{}", Self::remove_tags(body));
+        let body = Self::remove_tags(body);
+        println!("{}", Self::replace_entities(&body));
     }
 
     // Returns either the input string if there is no body tag, or the content between the body
@@ -90,6 +91,10 @@ impl Browser {
         }
 
         result
+    }
+
+    fn replace_entities(s: &str) -> String {
+        s.replace("&lt;", "<").replace("&gt;", ">")
     }
 }
 
@@ -127,5 +132,20 @@ mod tests {
     #[test]
     fn remove_tags_from_empty_string() {
         assert_eq!("", Browser::remove_tags(""));
+    }
+
+    #[test]
+    fn replace_greater_than_entities() {
+        assert_eq!(">", Browser::replace_entities("&gt;"));
+    }
+
+    #[test]
+    fn replace_less_than_entities() {
+        assert_eq!("<", Browser::replace_entities("&lt;"));
+    }
+
+    #[test]
+    fn replace_entities_in_empty_string() {
+        assert_eq!("", Browser::replace_entities(""));
     }
 }
