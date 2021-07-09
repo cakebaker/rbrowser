@@ -28,7 +28,7 @@ impl Browser {
         }
     }
 
-    pub fn request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<(Vec<String>, String)> {
+    fn request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<(Vec<String>, String)> {
         write!(
             stream,
             "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nUser-Agent: rbrowser\r\n\r\n",
@@ -54,7 +54,7 @@ impl Browser {
         Ok((headers, body))
     }
 
-    pub fn show(s: &str) {
+    fn show(s: &str) {
         let body = Self::get_body(s);
         let body = Self::remove_tags(body);
         println!("{}", Self::replace_entities(&body));
