@@ -9,8 +9,7 @@ use crate::browser::Browser;
 use crate::url::Url;
 
 fn main() {
-    let mut args = env::args();
-    args.next();
+    let mut args = env::args().skip(1);
 
     let url = if let Some(arg) = args.next() {
         Url::new(&arg)
