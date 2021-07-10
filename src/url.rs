@@ -19,7 +19,7 @@ impl fmt::Display for Scheme {
 const DEFAULT_HTTP_PORT: u16 = 80;
 const DEFAULT_HTTPS_PORT: u16 = 443;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Url {
     pub scheme: Scheme,
     pub host: String,

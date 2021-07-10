@@ -5,26 +5,34 @@ use std::net::TcpStream;
 
 use crate::url::Scheme;
 use crate::url::Url;
+use crate::url_parser::UrlType;
 
 #[derive(Debug)]
 pub struct Browser {}
 
 impl Browser {
-    pub fn load(url: &Url) {
-        let url_to_connect = format!("{}:{}", url.host, url.port);
-        let stream = TcpStream::connect(url_to_connect).unwrap();
+    pub fn load(url_type: &UrlType) {
+        match url_type {
+            UrlType::Http(url) | UrlType::ViewSource(url) => {
+                let url_to_connect = format!("{}:{}", url.host, url.port);
+                let stream = TcpStream::connect(url_to_connect).unwrap();
 
-        let result = if url.scheme == Scheme::Https {
-            let connector = SslConnector::builder(SslMethod::tls()).unwrap().build();
-            let stream = connector.connect(&url.host, stream).unwrap();
-            Self::request(url, stream)
-        } else {
-            Self::request(url, stream)
-        };
-
-        match result {
-            Ok((_, body)) => Self::show(&body),
-            Err(e) => eprintln!("{}", e),
+                let result = if url.scheme == Scheme::Https {
+                    let connector = SslConnector::builder(SslMethod::tls()).unwrap().build();
+                    let stream = connector.connect(&url.host, stream).unwrap();
+                    Self::request(url, stream)
+                } else {
+                    Self::request(url, stream)
+                };
+                match result {
+                    Ok((_, body)) => match url_type {
+                        UrlType::ViewSource(_) => println!("{}", body),
+                        _ => Self::show(&body),
+                    },
+                    Err(e) => eprintln!("{}", e),
+                }
+            }
+            UrlType::Data(s) => Self::show(s),
         }
     }
 

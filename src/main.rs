@@ -2,17 +2,19 @@
 
 mod browser;
 mod url;
+mod url_parser;
 
 use std::env;
 
 use crate::browser::Browser;
 use crate::url::Url;
+use crate::url_parser::UrlParser;
 
 fn main() {
     let mut args = env::args().skip(1);
 
     let url = if let Some(arg) = args.next() {
-        Url::new(&arg)
+        UrlParser::parse(&arg)
     } else {
         println!("Usage: rbrowser <URL>");
         return;
