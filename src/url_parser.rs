@@ -4,7 +4,12 @@ use crate::Url;
 pub enum UrlType {
     Http(Url),
     ViewSource(Url),
-    Data(String),
+    // https://datatracker.ietf.org/doc/html/rfc2397
+    Data {
+        mediatype: Option<String>,
+        base64: bool,
+        data: String,
+    },
 }
 
 pub struct UrlParser {}
@@ -15,10 +20,36 @@ impl UrlParser {
             Ok(UrlType::Http(Url::new(url)?))
         } else if let Some(stripped) = url.strip_prefix("view-source:") {
             Ok(UrlType::ViewSource(Url::new(stripped)?))
-        } else if let Some(stripped) = url.strip_prefix("data:") {
-            Ok(UrlType::Data(stripped.to_string()))
         } else {
-            Err("Unknown scheme")
+            url.strip_prefix("data:")
+                .map_or(Err("Unknown scheme"), |stripped| {
+                    let mut split = stripped.splitn(2, ',');
+                    let mut base64 = false;
+
+                    let mediatype = split.next().and_then(|mediatype| {
+                        let mt = mediatype.strip_suffix(";base64").map_or_else(
+                            || Some(mediatype.to_string()),
+                            |mt| {
+                                base64 = true;
+                                Some(mt.to_string())
+                            },
+                        );
+
+                        if mt == Some("".to_string()) {
+                            None
+                        } else {
+                            mt
+                        }
+                    });
+
+                    let data = split.next().map_or("".to_string(), ToString::to_string);
+
+                    Ok(UrlType::Data {
+                        mediatype,
+                        base64,
+                        data,
+                    })
+                })
         }
     }
 }
@@ -59,9 +90,51 @@ mod tests {
 
     #[test]
     fn parse_data_url() {
-        let result = UrlParser::parse("data:test").unwrap();
+        let result = UrlParser::parse("data:text/html,test").unwrap();
         match result {
-            UrlType::Data(s) => assert_eq!("test", s),
+            UrlType::Data {
+                mediatype,
+                base64,
+                data,
+            } => {
+                assert_eq!(Some("text/html".to_string()), mediatype);
+                assert_eq!(false, base64);
+                assert_eq!("test", data);
+            }
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn parse_data_url_with_base64_set() {
+        let result = UrlParser::parse("data:image/gif;base64,image").unwrap();
+        match result {
+            UrlType::Data {
+                mediatype,
+                base64,
+                data,
+            } => {
+                assert_eq!(Some("image/gif".to_string()), mediatype);
+                assert_eq!(true, base64);
+                assert_eq!("image", data);
+            }
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn parse_data_url_with_no_data() {
+        let result = UrlParser::parse("data:,").unwrap();
+        match result {
+            UrlType::Data {
+                mediatype,
+                base64,
+                data,
+            } => {
+                assert_eq!(None, mediatype);
+                assert_eq!(false, base64);
+                assert_eq!("", data);
+            }
             _ => assert!(false),
         }
     }

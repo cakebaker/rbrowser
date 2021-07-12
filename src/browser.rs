@@ -32,7 +32,12 @@ impl Browser {
                     Err(e) => eprintln!("{}", e),
                 }
             }
-            UrlType::Data(s) => Self::show(s),
+            // XXX the "view" doesn't support mediatype and base64 encoding
+            UrlType::Data {
+                mediatype: _,
+                base64: _,
+                data,
+            } => Self::show(data),
         }
     }
 
