@@ -4,7 +4,6 @@ use crate::Url;
 pub enum UrlType {
     Http(Url),
     ViewSource(Url),
-    // https://datatracker.ietf.org/doc/html/rfc2397
     Data {
         mediatype: Option<String>,
         base64: bool,
@@ -23,34 +22,43 @@ impl UrlParser {
         } else {
             url.strip_prefix("data:")
                 .map_or(Err("Unknown scheme"), |stripped| {
-                    let mut split = stripped.splitn(2, ',');
-                    let mut base64 = false;
-
-                    let mediatype = split.next().and_then(|mediatype| {
-                        let mt = mediatype.strip_suffix(";base64").map_or_else(
-                            || Some(mediatype.to_string()),
-                            |mt| {
-                                base64 = true;
-                                Some(mt.to_string())
-                            },
-                        );
-
-                        if mt == Some("".to_string()) {
-                            None
-                        } else {
-                            mt
-                        }
-                    });
-
-                    let data = split.next().map_or("".to_string(), ToString::to_string);
-
-                    Ok(UrlType::Data {
-                        mediatype,
-                        base64,
-                        data,
-                    })
+                    Self::parse_data_url(stripped)
                 })
         }
+    }
+
+    // Function expects a string in the form: [<mediatype>][;base64],<data> and always returns an UrlType::Data
+    // see also https://datatracker.ietf.org/doc/html/rfc2397
+    fn parse_data_url(s: &str) -> Result<UrlType, &'static str> {
+        if !s.contains(',') {
+            return Err("Invalid data url");
+        }
+        let mut split = s.splitn(2, ',');
+        let mut base64 = false;
+
+        let mediatype = split.next().and_then(|mediatype| {
+            let mt = mediatype.strip_suffix(";base64").map_or_else(
+                || Some(mediatype.to_string()),
+                |mt| {
+                    base64 = true;
+                    Some(mt.to_string())
+                },
+            );
+
+            if mt == Some("".to_string()) {
+                None
+            } else {
+                mt
+            }
+        });
+
+        let data = split.next().map_or("".to_string(), ToString::to_string);
+
+        Ok(UrlType::Data {
+            mediatype,
+            base64,
+            data,
+        })
     }
 }
 
@@ -137,6 +145,11 @@ mod tests {
             }
             _ => assert!(false),
         }
+    }
+
+    #[test]
+    fn parse_invalid_data_url() {
+        assert!(UrlParser::parse("data:nodata").is_err());
     }
 
     #[test]
