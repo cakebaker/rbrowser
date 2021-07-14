@@ -3,6 +3,7 @@ use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
+use crate::response::Response;
 use crate::url::Scheme;
 use crate::url::Url;
 use crate::url_parser::UrlType;
@@ -17,17 +18,17 @@ impl Browser {
                 let url_to_connect = format!("{}:{}", url.host, url.port);
                 let stream = TcpStream::connect(url_to_connect).unwrap();
 
-                let result = if url.scheme == Scheme::Https {
+                let response = if url.scheme == Scheme::Https {
                     let connector = SslConnector::builder(SslMethod::tls()).unwrap().build();
                     let stream = connector.connect(&url.host, stream).unwrap();
                     Self::request(url, stream)
                 } else {
                     Self::request(url, stream)
                 };
-                match result {
-                    Ok((_, body)) => match url_type {
-                        UrlType::ViewSource(_) => println!("{}", body),
-                        _ => Self::show(&body),
+                match response {
+                    Ok(response) => match url_type {
+                        UrlType::ViewSource(_) => println!("{}", response.body),
+                        _ => Self::show(&response.body),
                     },
                     Err(e) => eprintln!("{}", e),
                 }
@@ -41,7 +42,7 @@ impl Browser {
         }
     }
 
-    fn request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<(Vec<String>, String)> {
+    fn request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<Response> {
         write!(
             stream,
             "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nUser-Agent: rbrowser\r\n\r\n",
@@ -50,21 +51,7 @@ impl Browser {
         let mut response = String::new();
         stream.read_to_string(&mut response)?;
 
-        let mut lines = response.lines();
-        let status_line = lines.next().unwrap();
-
-        let mut headers = Vec::new();
-        loop {
-            let line = lines.next().unwrap();
-            if line.is_empty() {
-                break;
-            }
-            headers.push(line.to_string());
-        }
-
-        let body: String = lines.collect();
-
-        Ok((headers, body))
+        Ok(Response::new(&response))
     }
 
     fn show(s: &str) {

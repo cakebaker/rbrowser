@@ -1,6 +1,7 @@
 #![warn(clippy::all, clippy::nursery, clippy::pedantic)]
 
 mod browser;
+mod response;
 mod url;
 mod url_parser;
 
