@@ -1,6 +1,6 @@
 use openssl::ssl::{SslConnector, SslMethod};
 use std::io;
-use std::io::{Read, Write};
+use std::io::{Error, ErrorKind, Read, Write};
 use std::net::TcpStream;
 
 use crate::response::Response;
@@ -14,25 +14,13 @@ pub struct Browser {}
 impl Browser {
     pub fn load(url_type: &UrlType) {
         match url_type {
-            UrlType::Http(url) | UrlType::ViewSource(url) => {
-                let url_to_connect = format!("{}:{}", url.host, url.port);
-                let stream = TcpStream::connect(url_to_connect).unwrap();
-
-                let response = if url.scheme == Scheme::Https {
-                    let connector = SslConnector::builder(SslMethod::tls()).unwrap().build();
-                    let stream = connector.connect(&url.host, stream).unwrap();
-                    Self::request(url, stream)
-                } else {
-                    Self::request(url, stream)
-                };
-                match response {
-                    Ok(response) => match url_type {
-                        UrlType::ViewSource(_) => println!("{}", response.body),
-                        _ => Self::show(&response.body),
-                    },
-                    Err(e) => eprintln!("{}", e),
-                }
-            }
+            UrlType::Http(url) | UrlType::ViewSource(url) => match Self::request(url) {
+                Ok(response) => match url_type {
+                    UrlType::ViewSource(_) => println!("{}", response.body),
+                    _ => Self::show(&response.body),
+                },
+                Err(e) => eprintln!("{}", e),
+            },
             // XXX the "view" doesn't support mediatype and base64 encoding
             UrlType::Data {
                 mediatype: _,
@@ -42,16 +30,32 @@ impl Browser {
         }
     }
 
-    fn request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<Response> {
-        write!(
-            stream,
-            "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nUser-Agent: rbrowser\r\n\r\n",
-            url.path, url.host
-        )?;
-        let mut response = String::new();
-        stream.read_to_string(&mut response)?;
+    fn request(url: &Url) -> io::Result<Response> {
+        fn make_request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<Response> {
+            write!(
+                stream,
+                "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nUser-Agent: rbrowser\r\n\r\n",
+                url.path, url.host
+            )?;
+            let mut response = String::new();
+            stream.read_to_string(&mut response)?;
 
-        Ok(Response::new(&response))
+            Ok(Response::new(&response))
+        }
+
+        let url_to_connect = format!("{}:{}", url.host, url.port);
+        let stream = TcpStream::connect(url_to_connect)?;
+
+        if url.scheme == Scheme::Https {
+            let connector = SslConnector::builder(SslMethod::tls())?.build();
+            if let Ok(stream) = connector.connect(&url.host, stream) {
+                make_request(url, stream)
+            } else {
+                Err(Error::new(ErrorKind::Other, "SSL handshake failed."))
+            }
+        } else {
+            make_request(url, stream)
+        }
     }
 
     fn show(s: &str) {
