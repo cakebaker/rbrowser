@@ -2,9 +2,13 @@ use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
 pub enum HttpStatus {
-    Ok,          // 200
-    NotFound,    // 404
-    Unsupported, // catch all for states not supported by this browser
+    Ok,                // 200
+    MovedPermanently,  // 301
+    Found,             // 302
+    TemporaryRedirect, // 307
+    PermanentRedirect, // 308
+    NotFound,          // 404
+    Unsupported,       // catch all for states not supported by this browser
 }
 
 #[derive(Debug)]
@@ -47,11 +51,25 @@ impl Response {
         self.headers.get(&k.to_ascii_lowercase())
     }
 
+    pub fn is_redirect(&self) -> bool {
+        [
+            HttpStatus::MovedPermanently,
+            HttpStatus::Found,
+            HttpStatus::TemporaryRedirect,
+            HttpStatus::PermanentRedirect,
+        ]
+        .contains(&self.status)
+    }
+
     fn parse_status(s: &str) -> HttpStatus {
         s.split(' ')
             .nth(1)
             .map_or(HttpStatus::Unsupported, |status_code| match status_code {
                 "200" => HttpStatus::Ok,
+                "301" => HttpStatus::MovedPermanently,
+                "302" => HttpStatus::Found,
+                "307" => HttpStatus::TemporaryRedirect,
+                "308" => HttpStatus::PermanentRedirect,
                 "404" => HttpStatus::NotFound,
                 _ => HttpStatus::Unsupported,
             })
@@ -88,6 +106,22 @@ Some Content"#,
     #[test]
     fn parse_supported_states() {
         assert_eq!(HttpStatus::Ok, Response::parse_status("HTTP/1.1 200 OK"));
+        assert_eq!(
+            HttpStatus::MovedPermanently,
+            Response::parse_status("HTTP/1.1 301 Moved Permanently")
+        );
+        assert_eq!(
+            HttpStatus::Found,
+            Response::parse_status("HTTP/1.1 302 Found")
+        );
+        assert_eq!(
+            HttpStatus::TemporaryRedirect,
+            Response::parse_status("HTTP/1.1 307 Temporary Redirect")
+        );
+        assert_eq!(
+            HttpStatus::PermanentRedirect,
+            Response::parse_status("HTTP/1.1 308 Permanent Redirect")
+        );
         assert_eq!(
             HttpStatus::NotFound,
             Response::parse_status("HTTP/1.1 404 Not Found")

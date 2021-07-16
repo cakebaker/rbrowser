@@ -12,15 +12,47 @@ use crate::url_parser::UrlType;
 pub struct Browser {}
 
 impl Browser {
+    const MAX_REDIRECTS: u8 = 5;
+
     pub fn load(url_type: &UrlType) {
         match url_type {
-            UrlType::Http(url) | UrlType::ViewSource(url) => match Self::request(url) {
-                Ok(response) => match url_type {
-                    UrlType::ViewSource(_) => println!("{}", response.body),
-                    _ => Self::show(&response.body),
-                },
-                Err(e) => eprintln!("{}", e),
-            },
+            UrlType::Http(url) | UrlType::ViewSource(url) => {
+                let mut redirect_count = 0;
+                let mut url = url;
+                let mut temp_url; // XXX used to circumvent "temporary value dropped" issue
+
+                loop {
+                    match Self::request(url) {
+                        Ok(response)
+                            if response.is_redirect() && redirect_count < Self::MAX_REDIRECTS =>
+                        {
+                            let location = response.header("Location").unwrap();
+                            temp_url = if location.starts_with('/') {
+                                Url::new(&format!(
+                                    "{}://{}:{}{}",
+                                    url.scheme, url.host, url.port, location
+                                ))
+                                .unwrap()
+                            } else {
+                                Url::new(location).unwrap()
+                            };
+                            url = &temp_url;
+                            redirect_count += 1;
+                        }
+                        Ok(response) => {
+                            match url_type {
+                                UrlType::ViewSource(_) => println!("{}", response.body),
+                                _ => Self::show(&response.body),
+                            }
+                            break;
+                        }
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            break;
+                        }
+                    }
+                }
+            }
             // XXX the "view" doesn't support mediatype and base64 encoding
             UrlType::Data {
                 mediatype: _,
