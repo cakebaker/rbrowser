@@ -3,6 +3,7 @@ use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::TcpStream;
 
+use crate::request::Request;
 use crate::response::Response;
 use crate::url::Scheme;
 use crate::url::Url;
@@ -22,7 +23,7 @@ impl Browser {
                 let mut temp_url; // XXX used to circumvent "temporary value dropped" issue
 
                 loop {
-                    match Self::request(url) {
+                    match Self::request(&Request::new(url.clone())) {
                         Ok(response)
                             if response.is_redirect() && redirect_count < Self::MAX_REDIRECTS =>
                         {
@@ -62,31 +63,28 @@ impl Browser {
         }
     }
 
-    fn request(url: &Url) -> io::Result<Response> {
-        fn make_request<T: Read + Write>(url: &Url, mut stream: T) -> io::Result<Response> {
-            write!(
-                stream,
-                "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nUser-Agent: rbrowser\r\n\r\n",
-                url.path, url.host
-            )?;
+    fn request(request: &Request) -> io::Result<Response> {
+        fn make_request<T: Read + Write>(request: &Request, mut stream: T) -> io::Result<Response> {
+            write!(stream, "{}", request.build())?;
             let mut response = String::new();
             stream.read_to_string(&mut response)?;
 
             Ok(Response::new(&response))
         }
 
+        let url = &request.url;
         let url_to_connect = format!("{}:{}", url.host, url.port);
         let stream = TcpStream::connect(url_to_connect)?;
 
         if url.scheme == Scheme::Https {
             let connector = SslConnector::builder(SslMethod::tls())?.build();
             if let Ok(stream) = connector.connect(&url.host, stream) {
-                make_request(url, stream)
+                make_request(request, stream)
             } else {
                 Err(Error::new(ErrorKind::Other, "SSL handshake failed."))
             }
         } else {
-            make_request(url, stream)
+            make_request(request, stream)
         }
     }
 
