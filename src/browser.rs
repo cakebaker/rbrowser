@@ -2,6 +2,7 @@ use openssl::ssl::{SslConnector, SslMethod};
 use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::TcpStream;
+use std::str;
 
 use crate::request::Request;
 use crate::response::Response;
@@ -66,8 +67,9 @@ impl Browser {
     fn request(request: &Request) -> io::Result<Response> {
         fn make_request<T: Read + Write>(request: &Request, mut stream: T) -> io::Result<Response> {
             write!(stream, "{}", request.build())?;
-            let mut response = String::new();
-            stream.read_to_string(&mut response)?;
+
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response)?;
 
             Ok(Response::new(&response))
         }

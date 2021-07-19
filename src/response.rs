@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::io::{ BufRead, BufReader };
+use std::str;
 
 #[derive(Debug, PartialEq)]
 pub enum HttpStatus {
@@ -19,26 +21,32 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn new(s: &str) -> Self {
-        let mut lines = s.lines();
+    pub fn new(bytes: &[u8]) -> Self {
+        let reader = BufReader::new(bytes);
+        let mut lines = reader.lines();
 
         let status = match lines.next() {
-            Some(line) => Self::parse_status(line),
+            Some(line) => Self::parse_status(&line.unwrap()),
             _ => HttpStatus::Unsupported,
         };
 
         let mut headers = HashMap::new();
         while let Some(line) = lines.next() {
+            let line = line.unwrap();
             if line.is_empty() {
                 break;
             }
 
-            if let Some((k, v)) = Self::split_into_key_value(line) {
+            if let Some((k, v)) = Self::split_into_key_value(&line) {
                 headers.insert(k, v);
             }
         }
 
-        let body: String = lines.collect();
+        let mut body = String::from("");
+
+        for line in lines {
+            body += &line.unwrap();
+        }
 
         Self {
             status,
@@ -88,7 +96,7 @@ mod tests {
     #[test]
     fn new() {
         let response = Response::new(
-            r#"HTTP/1.1 200 OK
+            br#"HTTP/1.1 200 OK
 Server: Apache
 Content-Type: text/html
 
