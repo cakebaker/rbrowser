@@ -45,9 +45,9 @@ impl Response {
         }
 
         let body = if headers.contains_key("content-encoding") {
-            let mut d = GzDecoder::new(body);
+            let mut decoder = GzDecoder::new(body);
             let mut s = String::new();
-            d.read_to_string(&mut s).unwrap();
+            decoder.read_to_string(&mut s).unwrap();
             s
         } else {
             String::from_utf8(body.to_vec()).unwrap()
@@ -103,6 +103,9 @@ impl Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::io::Write;
 
     #[test]
     fn new() {
@@ -120,6 +123,22 @@ Some Content",
             *response.header("Content-Type").unwrap()
         );
         assert_eq!("Some Content".to_string(), response.body);
+    }
+
+    #[test]
+    fn new_gzip_encoded_response() {
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(b"Hello World").unwrap();
+        let mut content = encoder.finish().unwrap();
+        let mut response = b"HTTP/1.1 200 OK\r\n\
+            Content-Encoding: gzip\r\n\
+            \r\n"
+            .to_vec();
+        response.append(&mut content);
+
+        let response = Response::new(&response);
+        assert_eq!(HttpStatus::Ok, response.status);
+        assert_eq!("Hello World".to_string(), response.body);
     }
 
     #[test]
