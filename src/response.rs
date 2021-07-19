@@ -39,10 +39,6 @@ impl Response {
 
         let mut headers = HashMap::new();
         for line in lines {
-            if line.is_empty() {
-                break;
-            }
-
             if let Some((k, v)) = Self::split_into_key_value(line) {
                 headers.insert(k, v);
             }
