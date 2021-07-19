@@ -24,7 +24,10 @@ impl Browser {
                 let mut temp_url; // XXX used to circumvent "temporary value dropped" issue
 
                 loop {
-                    match Self::request(&Request::new(url.clone())) {
+                    let mut request = Request::new(url.clone());
+                    request.header("Accept-Encoding", "gzip");
+
+                    match Self::request(&request) {
                         Ok(response)
                             if response.is_redirect() && redirect_count < Self::MAX_REDIRECTS =>
                         {

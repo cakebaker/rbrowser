@@ -7,3 +7,4 @@ edition = "2018"
 
 [dependencies]
 openssl = "0.10"
+flate2 = "1.0" # gzip compression/decompression library

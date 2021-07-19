@@ -1,5 +1,6 @@
+use flate2::read::GzDecoder;
 use std::collections::HashMap;
-use std::io::{ BufRead, BufReader };
+use std::io::Read;
 use std::str;
 
 #[derive(Debug, PartialEq)]
@@ -22,31 +23,39 @@ pub struct Response {
 
 impl Response {
     pub fn new(bytes: &[u8]) -> Self {
-        let reader = BufReader::new(bytes);
-        let mut lines = reader.lines();
+        let (header, body) = match Self::find_subsequence(bytes, b"\r\n\r\n") {
+            Some(pos) => (&bytes[0..pos], &bytes[(pos + b"\r\n\r\n".len())..]),
+            _ => (bytes, &bytes[bytes.len()..]),
+        };
+
+        // headers should be ASCII, hence there should be no problem to turn them to UTF-8
+        let header_content = String::from_utf8(header.to_vec()).unwrap();
+        let mut lines = header_content.lines();
 
         let status = match lines.next() {
-            Some(line) => Self::parse_status(&line.unwrap()),
+            Some(line) => Self::parse_status(line),
             _ => HttpStatus::Unsupported,
         };
 
         let mut headers = HashMap::new();
-        while let Some(line) = lines.next() {
-            let line = line.unwrap();
+        for line in lines {
             if line.is_empty() {
                 break;
             }
 
-            if let Some((k, v)) = Self::split_into_key_value(&line) {
+            if let Some((k, v)) = Self::split_into_key_value(line) {
                 headers.insert(k, v);
             }
         }
 
-        let mut body = String::from("");
-
-        for line in lines {
-            body += &line.unwrap();
-        }
+        let body = if headers.contains_key("content-encoding") {
+            let mut d = GzDecoder::new(body);
+            let mut s = String::new();
+            d.read_to_string(&mut s).unwrap();
+            s
+        } else {
+            String::from_utf8(body.to_vec()).unwrap()
+        };
 
         Self {
             status,
@@ -67,6 +76,12 @@ impl Response {
             HttpStatus::PermanentRedirect,
         ]
         .contains(&self.status)
+    }
+
+    fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+        haystack
+            .windows(needle.len())
+            .position(|window| window == needle)
     }
 
     fn parse_status(s: &str) -> HttpStatus {
@@ -96,11 +111,11 @@ mod tests {
     #[test]
     fn new() {
         let response = Response::new(
-            br#"HTTP/1.1 200 OK
-Server: Apache
-Content-Type: text/html
-
-Some Content"#,
+            b"HTTP/1.1 200 OK\r\n\
+Server: Apache\r\n\
+Content-Type: text/html\r\n\
+\r\n\
+Some Content",
         );
         assert_eq!(HttpStatus::Ok, response.status);
         assert_eq!("Apache".to_string(), *response.header("Server").unwrap());
