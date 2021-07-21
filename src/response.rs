@@ -44,6 +44,40 @@ impl Response {
             }
         }
 
+        let mut chunks = vec![];
+        let body = if headers.contains_key("transfer-encoding") {
+            const TERMINATING_CHUNK_SIZE: usize = 0;
+            let mut i = 0;
+
+            // Each chunk has the format: <chunk size in hex>\r\n<chunk data>\r\n
+            loop {
+                let chunk_size = {
+                    let mut chars = Vec::new();
+
+                    while body[i] != b'\r' {
+                        chars.push(body[i] as char);
+                        i += 1;
+                    }
+
+                    let s: String = chars.into_iter().collect();
+                    usize::from_str_radix(&s, 16).unwrap()
+                };
+
+                if chunk_size == TERMINATING_CHUNK_SIZE {
+                    break;
+                }
+
+                let data_position = i + b"\r\n".len();
+
+                chunks.extend_from_slice(&body[data_position..(data_position + chunk_size)]);
+
+                i = data_position + chunk_size + b"\r\n".len();
+            }
+            &chunks
+        } else {
+            body
+        };
+
         let body = if headers.contains_key("content-encoding") {
             let mut decoder = GzDecoder::new(body);
             let mut s = String::new();
@@ -139,6 +173,27 @@ Some Content",
         let response = Response::new(&response);
         assert_eq!(HttpStatus::Ok, response.status);
         assert_eq!("Hello World".to_string(), response.body);
+    }
+
+    #[test]
+    fn new_chunk_encoded_response() {
+        let response = Response::new(
+            b"HTTP/1.1 200 OK\r\n\
+            Transfer-Encoding: Chunked\r\n\
+            \r\n\
+            4\r\n\
+            Wiki\r\n\
+            6\r\n\
+            pedia \r\n\
+            E\r\n\
+            in \r\n\
+            \r\n\
+            chunks.\r\n\
+            0\r\n\
+            \r\n",
+        );
+        assert_eq!(HttpStatus::Ok, response.status);
+        assert_eq!("Wikipedia in \r\n\r\nchunks.", response.body);
     }
 
     #[test]
