@@ -1,3 +1,5 @@
+use encoding::all::ISO_8859_1;
+use encoding::{DecoderTrap, Encoding};
 use flate2::read::GzDecoder;
 use std::collections::HashMap;
 use std::io::Read;
@@ -78,13 +80,22 @@ impl Response {
             body
         };
 
+        // XXX supports UTF-8 and ISO-8859-1, everything else crashes
         let body = if headers.contains_key("content-encoding") {
             let mut decoder = GzDecoder::new(body);
             let mut s = String::new();
-            decoder.read_to_string(&mut s).unwrap();
+            if decoder.read_to_string(&mut s).is_ok() {
+                s
+            } else {
+                let mut decoder = GzDecoder::new(body);
+                let mut v = Vec::new();
+                decoder.read_to_end(&mut v).unwrap();
+                ISO_8859_1.decode(&v, DecoderTrap::Strict).unwrap()
+            }
+        } else if let Ok(s) = String::from_utf8(body.to_vec()) {
             s
         } else {
-            String::from_utf8(body.to_vec()).unwrap()
+            ISO_8859_1.decode(body, DecoderTrap::Strict).unwrap()
         };
 
         Self {
