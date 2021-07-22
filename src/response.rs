@@ -25,26 +25,12 @@ pub struct Response {
 
 impl Response {
     pub fn new(bytes: &[u8]) -> Self {
-        let (header, body) = match Self::find_subsequence(bytes, b"\r\n\r\n") {
+        let (header_bytes, body) = match Self::find_subsequence(bytes, b"\r\n\r\n") {
             Some(pos) => (&bytes[0..pos], &bytes[(pos + b"\r\n\r\n".len())..]),
             _ => (bytes, &bytes[bytes.len()..]),
         };
 
-        // headers should be ASCII, hence there should be no problem to turn them to UTF-8
-        let header_content = String::from_utf8(header.to_vec()).unwrap();
-        let mut lines = header_content.lines();
-
-        let status = match lines.next() {
-            Some(line) => Self::parse_status(line),
-            _ => HttpStatus::Unsupported,
-        };
-
-        let mut headers = HashMap::new();
-        for line in lines {
-            if let Some((k, v)) = Self::split_into_key_value(line) {
-                headers.insert(k, v);
-            }
-        }
+        let (status, headers) = Self::parse_headers(header_bytes);
 
         let mut chunks = vec![];
         let body = if headers.contains_key("transfer-encoding") {
@@ -123,6 +109,26 @@ impl Response {
         haystack
             .windows(needle.len())
             .position(|window| window == needle)
+    }
+
+    fn parse_headers(headers: &[u8]) -> (HttpStatus, HashMap<String, String>) {
+        // headers are ASCII, hence there should be no problem to turn them to UTF-8
+        let header_content = String::from_utf8(headers.to_vec()).unwrap();
+        let mut lines = header_content.lines();
+
+        let status = match lines.next() {
+            Some(line) => Self::parse_status(line),
+            _ => HttpStatus::Unsupported,
+        };
+
+        let mut headers = HashMap::new();
+        for line in lines {
+            if let Some((k, v)) = Self::split_into_key_value(line) {
+                headers.insert(k, v);
+            }
+        }
+
+        (status, headers)
     }
 
     fn parse_status(s: &str) -> HttpStatus {
@@ -205,6 +211,18 @@ Some Content",
         );
         assert_eq!(HttpStatus::Ok, response.status);
         assert_eq!("Wikipedia in \r\n\r\nchunks.", response.body);
+    }
+
+    #[test]
+    fn parse_headers() {
+        let header_bytes = b"HTTP/1.1 200 OK\r\n\
+                             Header-A: Value A\r\n\
+                             Header-B: Value B";
+
+        let (status, headers) = Response::parse_headers(header_bytes);
+        assert_eq!(HttpStatus::Ok, status);
+        assert_eq!("Value A".to_string(), *headers.get("header-a").unwrap());
+        assert_eq!("Value B".to_string(), *headers.get("header-b").unwrap());
     }
 
     #[test]
