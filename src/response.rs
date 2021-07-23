@@ -16,10 +16,12 @@ pub enum HttpStatus {
     Unsupported,       // catch all for states not supported by this browser
 }
 
+type HeaderMap = HashMap<String, String>;
+
 #[derive(Debug)]
 pub struct Response {
     pub status: HttpStatus,
-    headers: HashMap<String, String>,
+    headers: HeaderMap,
     pub body: String,
 }
 
@@ -66,7 +68,7 @@ impl Response {
 struct HeaderParser {}
 
 impl HeaderParser {
-    pub fn parse(headers: &[u8]) -> (HttpStatus, HashMap<String, String>) {
+    pub fn parse(headers: &[u8]) -> (HttpStatus, HeaderMap) {
         // headers are ASCII, hence there should be no problem to turn them to UTF-8
         let header_content = String::from_utf8(headers.to_vec()).unwrap();
         let mut lines = header_content.lines();
@@ -109,7 +111,7 @@ impl HeaderParser {
 struct BodyParser {}
 
 impl BodyParser {
-    pub fn parse(body: &[u8], headers: &HashMap<String, String>) -> String {
+    pub fn parse(body: &[u8], headers: &HeaderMap) -> String {
         let mut chunks = vec![];
         let body = if headers.contains_key("transfer-encoding") {
             const TERMINATING_CHUNK_SIZE: usize = 0;
