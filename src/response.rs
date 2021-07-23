@@ -30,7 +30,7 @@ impl Response {
             _ => (bytes, &bytes[bytes.len()..]),
         };
 
-        let (status, headers) = Self::parse_headers(header_bytes);
+        let (status, headers) = HeaderParser::parse(header_bytes);
 
         let mut chunks = vec![];
         let body = if headers.contains_key("transfer-encoding") {
@@ -110,8 +110,12 @@ impl Response {
             .windows(needle.len())
             .position(|window| window == needle)
     }
+}
 
-    fn parse_headers(headers: &[u8]) -> (HttpStatus, HashMap<String, String>) {
+struct HeaderParser {}
+
+impl HeaderParser {
+    pub fn parse(headers: &[u8]) -> (HttpStatus, HashMap<String, String>) {
         // headers are ASCII, hence there should be no problem to turn them to UTF-8
         let header_content = String::from_utf8(headers.to_vec()).unwrap();
         let mut lines = header_content.lines();
@@ -219,7 +223,7 @@ Some Content",
                              Header-A: Value A\r\n\
                              Header-B: Value B";
 
-        let (status, headers) = Response::parse_headers(header_bytes);
+        let (status, headers) = HeaderParser::parse(header_bytes);
         assert_eq!(HttpStatus::Ok, status);
         assert_eq!("Value A".to_string(), *headers.get("header-a").unwrap());
         assert_eq!("Value B".to_string(), *headers.get("header-b").unwrap());
@@ -227,26 +231,26 @@ Some Content",
 
     #[test]
     fn parse_supported_states() {
-        assert_eq!(HttpStatus::Ok, Response::parse_status("HTTP/1.1 200 OK"));
+        assert_eq!(HttpStatus::Ok, HeaderParser::parse_status("HTTP/1.1 200 OK"));
         assert_eq!(
             HttpStatus::MovedPermanently,
-            Response::parse_status("HTTP/1.1 301 Moved Permanently")
+            HeaderParser::parse_status("HTTP/1.1 301 Moved Permanently")
         );
         assert_eq!(
             HttpStatus::Found,
-            Response::parse_status("HTTP/1.1 302 Found")
+            HeaderParser::parse_status("HTTP/1.1 302 Found")
         );
         assert_eq!(
             HttpStatus::TemporaryRedirect,
-            Response::parse_status("HTTP/1.1 307 Temporary Redirect")
+            HeaderParser::parse_status("HTTP/1.1 307 Temporary Redirect")
         );
         assert_eq!(
             HttpStatus::PermanentRedirect,
-            Response::parse_status("HTTP/1.1 308 Permanent Redirect")
+            HeaderParser::parse_status("HTTP/1.1 308 Permanent Redirect")
         );
         assert_eq!(
             HttpStatus::NotFound,
-            Response::parse_status("HTTP/1.1 404 Not Found")
+            HeaderParser::parse_status("HTTP/1.1 404 Not Found")
         );
     }
 
@@ -254,23 +258,23 @@ Some Content",
     fn parse_unsupported_status() {
         assert_eq!(
             HttpStatus::Unsupported,
-            Response::parse_status("HTTP/1.1 208 Already Reported")
+            HeaderParser::parse_status("HTTP/1.1 208 Already Reported")
         );
     }
 
     #[test]
     fn parse_invalid_status() {
-        assert_eq!(HttpStatus::Unsupported, Response::parse_status("200"));
+        assert_eq!(HttpStatus::Unsupported, HeaderParser::parse_status("200"));
     }
 
     #[test]
     fn split_into_key_value() {
-        let result = Response::split_into_key_value("Header: value").unwrap();
+        let result = HeaderParser::split_into_key_value("Header: value").unwrap();
         assert_eq!(("header".to_string(), "value".to_string()), result);
     }
 
     #[test]
     fn split_into_key_value_with_invalid_str() {
-        assert_eq!(None, Response::split_into_key_value("header"));
+        assert_eq!(None, HeaderParser::split_into_key_value("header"));
     }
 }
