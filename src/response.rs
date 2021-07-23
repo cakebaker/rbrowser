@@ -25,8 +25,10 @@ pub struct Response {
 
 impl Response {
     pub fn new(bytes: &[u8]) -> Self {
-        let (header_bytes, body_bytes) = match Self::find_subsequence(bytes, b"\r\n\r\n") {
-            Some(pos) => (&bytes[0..pos], &bytes[(pos + b"\r\n\r\n".len())..]),
+        const SEPARATOR: &[u8] = b"\r\n\r\n";
+
+        let (header_bytes, body_bytes) = match Self::find_subsequence(bytes, SEPARATOR) {
+            Some(pos) => (&bytes[0..pos], &bytes[(pos + SEPARATOR.len())..]),
             _ => (bytes, &bytes[bytes.len()..]),
         };
 
