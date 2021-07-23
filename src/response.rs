@@ -146,18 +146,8 @@ impl BodyParser {
             body
         };
 
-        // XXX supports UTF-8 and ISO-8859-1, everything else crashes
         let body = if headers.contains_key("content-encoding") {
-            let mut decoder = GzDecoder::new(body);
-            let mut s = String::new();
-            if decoder.read_to_string(&mut s).is_ok() {
-                s
-            } else {
-                let mut decoder = GzDecoder::new(body);
-                let mut v = Vec::new();
-                decoder.read_to_end(&mut v).unwrap();
-                ISO_8859_1.decode(&v, DecoderTrap::Strict).unwrap()
-            }
+            Self::unzip_and_decode(body)
         } else if let Ok(s) = String::from_utf8(body.to_vec()) {
             s
         } else {
@@ -165,6 +155,20 @@ impl BodyParser {
         };
 
         body
+    }
+
+    // XXX supports UTF-8 and ISO-8859-1, everything else crashes
+    fn unzip_and_decode(body: &[u8]) -> String {
+        let mut decoder = GzDecoder::new(body);
+        let mut s = String::new();
+        if decoder.read_to_string(&mut s).is_ok() {
+            s
+        } else {
+            let mut decoder = GzDecoder::new(body);
+            let mut v = Vec::new();
+            decoder.read_to_end(&mut v).unwrap();
+            ISO_8859_1.decode(&v, DecoderTrap::Strict).unwrap()
+        }
     }
 }
 
