@@ -25,64 +25,13 @@ pub struct Response {
 
 impl Response {
     pub fn new(bytes: &[u8]) -> Self {
-        let (header_bytes, body) = match Self::find_subsequence(bytes, b"\r\n\r\n") {
+        let (header_bytes, body_bytes) = match Self::find_subsequence(bytes, b"\r\n\r\n") {
             Some(pos) => (&bytes[0..pos], &bytes[(pos + b"\r\n\r\n".len())..]),
             _ => (bytes, &bytes[bytes.len()..]),
         };
 
         let (status, headers) = HeaderParser::parse(header_bytes);
-
-        let mut chunks = vec![];
-        let body = if headers.contains_key("transfer-encoding") {
-            const TERMINATING_CHUNK_SIZE: usize = 0;
-            let mut i = 0;
-
-            // Each chunk has the format: <chunk size in hex>\r\n<chunk data>\r\n
-            loop {
-                let chunk_size = {
-                    let mut chars = Vec::new();
-
-                    while body[i] != b'\r' {
-                        chars.push(body[i] as char);
-                        i += 1;
-                    }
-
-                    let s: String = chars.into_iter().collect();
-                    usize::from_str_radix(&s, 16).unwrap()
-                };
-
-                if chunk_size == TERMINATING_CHUNK_SIZE {
-                    break;
-                }
-
-                let data_position = i + b"\r\n".len();
-
-                chunks.extend_from_slice(&body[data_position..(data_position + chunk_size)]);
-
-                i = data_position + chunk_size + b"\r\n".len();
-            }
-            &chunks
-        } else {
-            body
-        };
-
-        // XXX supports UTF-8 and ISO-8859-1, everything else crashes
-        let body = if headers.contains_key("content-encoding") {
-            let mut decoder = GzDecoder::new(body);
-            let mut s = String::new();
-            if decoder.read_to_string(&mut s).is_ok() {
-                s
-            } else {
-                let mut decoder = GzDecoder::new(body);
-                let mut v = Vec::new();
-                decoder.read_to_end(&mut v).unwrap();
-                ISO_8859_1.decode(&v, DecoderTrap::Strict).unwrap()
-            }
-        } else if let Ok(s) = String::from_utf8(body.to_vec()) {
-            s
-        } else {
-            ISO_8859_1.decode(body, DecoderTrap::Strict).unwrap()
-        };
+        let body = BodyParser::parse(body_bytes, &headers);
 
         Self {
             status,
@@ -152,6 +101,66 @@ impl HeaderParser {
     fn split_into_key_value(s: &str) -> Option<(String, String)> {
         s.split_once(':')
             .map(|(k, v)| (k.to_ascii_lowercase(), v.trim().to_string()))
+    }
+}
+
+struct BodyParser {}
+
+impl BodyParser {
+    pub fn parse(body: &[u8], headers: &HashMap<String, String>) -> String {
+        let mut chunks = vec![];
+        let body = if headers.contains_key("transfer-encoding") {
+            const TERMINATING_CHUNK_SIZE: usize = 0;
+            let mut i = 0;
+
+            // Each chunk has the format: <chunk size in hex>\r\n<chunk data>\r\n
+            loop {
+                let chunk_size = {
+                    let mut chars = Vec::new();
+
+                    while body[i] != b'\r' {
+                        chars.push(body[i] as char);
+                        i += 1;
+                    }
+
+                    let s: String = chars.into_iter().collect();
+                    usize::from_str_radix(&s, 16).unwrap()
+                };
+
+                if chunk_size == TERMINATING_CHUNK_SIZE {
+                    break;
+                }
+
+                let data_position = i + b"\r\n".len();
+
+                chunks.extend_from_slice(&body[data_position..(data_position + chunk_size)]);
+
+                i = data_position + chunk_size + b"\r\n".len();
+            }
+            &chunks
+        } else {
+            body
+        };
+
+        // XXX supports UTF-8 and ISO-8859-1, everything else crashes
+        let body = if headers.contains_key("content-encoding") {
+            let mut decoder = GzDecoder::new(body);
+            let mut s = String::new();
+            if decoder.read_to_string(&mut s).is_ok() {
+                s
+            } else {
+                let mut decoder = GzDecoder::new(body);
+                let mut v = Vec::new();
+                decoder.read_to_end(&mut v).unwrap();
+                ISO_8859_1.decode(&v, DecoderTrap::Strict).unwrap()
+            }
+        } else if let Ok(s) = String::from_utf8(body.to_vec()) {
+            s
+        } else {
+            ISO_8859_1.decode(body, DecoderTrap::Strict).unwrap()
+        };
+
+        body
     }
 }
 
@@ -231,7 +240,10 @@ Some Content",
 
     #[test]
     fn parse_supported_states() {
-        assert_eq!(HttpStatus::Ok, HeaderParser::parse_status("HTTP/1.1 200 OK"));
+        assert_eq!(
+            HttpStatus::Ok,
+            HeaderParser::parse_status("HTTP/1.1 200 OK")
+        );
         assert_eq!(
             HttpStatus::MovedPermanently,
             HeaderParser::parse_status("HTTP/1.1 301 Moved Permanently")
