@@ -112,49 +112,54 @@ struct BodyParser {}
 
 impl BodyParser {
     pub fn parse(body: &[u8], headers: &HeaderMap) -> String {
-        let mut chunks = vec![];
         let body = if headers.contains_key("transfer-encoding") {
-            const TERMINATING_CHUNK_SIZE: usize = 0;
-            let mut i = 0;
-
-            // Each chunk has the format: <chunk size in hex>\r\n<chunk data>\r\n
-            loop {
-                let chunk_size = {
-                    let mut chars = Vec::new();
-
-                    while body[i] != b'\r' {
-                        chars.push(body[i] as char);
-                        i += 1;
-                    }
-
-                    let s: String = chars.into_iter().collect();
-                    usize::from_str_radix(&s, 16).unwrap()
-                };
-
-                if chunk_size == TERMINATING_CHUNK_SIZE {
-                    break;
-                }
-
-                let data_position = i + b"\r\n".len();
-
-                chunks.extend_from_slice(&body[data_position..(data_position + chunk_size)]);
-
-                i = data_position + chunk_size + b"\r\n".len();
-            }
-            &chunks
+            Self::dechunk(body)
         } else {
-            body
+            body.to_vec()
         };
 
         let body = if headers.contains_key("content-encoding") {
-            Self::unzip_and_decode(body)
-        } else if let Ok(s) = String::from_utf8(body.to_vec()) {
+            Self::unzip_and_decode(&body)
+        } else if let Ok(s) = String::from_utf8(body.clone()) {
             s
         } else {
-            ISO_8859_1.decode(body, DecoderTrap::Strict).unwrap()
+            ISO_8859_1.decode(&body, DecoderTrap::Strict).unwrap()
         };
 
         body
+    }
+
+    fn dechunk(body: &[u8]) -> Vec<u8> {
+        const TERMINATING_CHUNK_SIZE: usize = 0;
+        let mut dechunked = Vec::new();
+        let mut i = 0;
+
+        // Each chunk has the format: <chunk size in hex>\r\n<chunk data>\r\n
+        loop {
+            let chunk_size = {
+                let mut chars = Vec::new();
+
+                while body[i] != b'\r' {
+                    chars.push(body[i] as char);
+                    i += 1;
+                }
+
+                let s: String = chars.into_iter().collect();
+                usize::from_str_radix(&s, 16).unwrap()
+            };
+
+            if chunk_size == TERMINATING_CHUNK_SIZE {
+                break;
+            }
+
+            let data_position = i + b"\r\n".len();
+
+            dechunked.extend_from_slice(&body[data_position..(data_position + chunk_size)]);
+
+            i = data_position + chunk_size + b"\r\n".len();
+        }
+
+        dechunked
     }
 
     // XXX supports UTF-8 and ISO-8859-1, everything else crashes
