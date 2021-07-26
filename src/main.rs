@@ -2,6 +2,7 @@
 
 mod browser;
 mod request;
+mod request_handler;
 mod response;
 mod url;
 mod url_parser;

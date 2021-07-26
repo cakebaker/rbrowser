@@ -1,95 +1,27 @@
-use openssl::ssl::{SslConnector, SslMethod};
-use std::io;
-use std::io::{Error, ErrorKind, Read, Write};
-use std::net::TcpStream;
 use std::str;
 
-use crate::request::Request;
-use crate::response::Response;
-use crate::url::Scheme;
-use crate::url::Url;
+use crate::request_handler::RequestHandler;
 use crate::url_parser::UrlType;
 
 #[derive(Debug)]
 pub struct Browser {}
 
 impl Browser {
-    const MAX_REDIRECTS: u8 = 5;
-
     pub fn load(url_type: &UrlType) {
         match url_type {
-            UrlType::Http(url) | UrlType::ViewSource(url) => {
-                let mut redirect_count = 0;
-                let mut url = url;
-                let mut temp_url; // XXX used to circumvent "temporary value dropped" issue
-
-                loop {
-                    let mut request = Request::new(url.clone());
-                    request.header("Accept-Encoding", "gzip");
-
-                    match Self::request(&request) {
-                        Ok(response)
-                            if response.is_redirect() && redirect_count < Self::MAX_REDIRECTS =>
-                        {
-                            let location = response.header("Location").unwrap();
-                            temp_url = if location.starts_with('/') {
-                                Url::new(&format!(
-                                    "{}://{}:{}{}",
-                                    url.scheme, url.host, url.port, location
-                                ))
-                                .unwrap()
-                            } else {
-                                Url::new(location).unwrap()
-                            };
-                            url = &temp_url;
-                            redirect_count += 1;
-                        }
-                        Ok(response) => {
-                            match url_type {
-                                UrlType::ViewSource(_) => println!("{}", response.body),
-                                _ => Self::show(&response.body),
-                            }
-                            break;
-                        }
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            break;
-                        }
-                    }
-                }
-            }
-            // XXX the "view" doesn't support mediatype and base64 encoding
+            UrlType::Http(url) => match RequestHandler::request(url) {
+                Ok(response) => Self::show(&response),
+                Err(e) => eprintln!("{}", e),
+            },
+            UrlType::ViewSource(url) => match RequestHandler::request(url) {
+                Ok(response) => println!("{}", response),
+                Err(e) => eprintln!("{}", e),
+            },
             UrlType::Data {
                 mediatype: _,
                 base64: _,
                 data,
             } => Self::show(data),
-        }
-    }
-
-    fn request(request: &Request) -> io::Result<Response> {
-        fn make_request<T: Read + Write>(request: &Request, mut stream: T) -> io::Result<Response> {
-            write!(stream, "{}", request.build())?;
-
-            let mut response = Vec::new();
-            stream.read_to_end(&mut response)?;
-
-            Ok(Response::new(&response))
-        }
-
-        let url = &request.url;
-        let url_to_connect = format!("{}:{}", url.host, url.port);
-        let stream = TcpStream::connect(url_to_connect)?;
-
-        if url.scheme == Scheme::Https {
-            let connector = SslConnector::builder(SslMethod::tls())?.build();
-            if let Ok(stream) = connector.connect(&url.host, stream) {
-                make_request(request, stream)
-            } else {
-                Err(Error::new(ErrorKind::Other, "SSL handshake failed."))
-            }
-        } else {
-            make_request(request, stream)
         }
     }
 
