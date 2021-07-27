@@ -44,6 +44,18 @@ impl Response {
         }
     }
 
+    pub fn cache_max_age(&self) -> u32 {
+        if let Some(cache_control) = self.header("Cache-Control") {
+            if let Some((_, s)) = cache_control.split_once("max-age=") {
+                let max_age: String = s.chars().take_while(|c| c.is_digit(10)).collect();
+
+                return max_age.parse().unwrap();
+            }
+        }
+
+        0
+    }
+
     pub fn header(&self, k: &str) -> Option<&String> {
         self.headers.get(&k.to_ascii_lowercase())
     }
@@ -237,6 +249,39 @@ Some Content",
         );
         assert_eq!(HttpStatus::Ok, response.status);
         assert_eq!("Wikipedia in \r\n\r\nchunks.", response.body);
+    }
+
+    #[test]
+    fn cache_max_age() {
+        let response = Response::new(
+            b"HTTP/1.1 200 OK\r\n\
+                                       Cache-Control: max-age=600\r\n\r\n",
+        );
+        assert_eq!(600, response.cache_max_age());
+    }
+
+    #[test]
+    fn cache_max_age_with_other_directive() {
+        let response = Response::new(
+            b"HTTP/1.1 200 OK\r\n\
+                                       Cache-Control: private, max-age=600\r\n\r\n",
+        );
+        assert_eq!(600, response.cache_max_age());
+    }
+
+    #[test]
+    fn cache_max_age_with_missing_cache_control_header() {
+        let response = Response::new(b"HTTP/1.1 200 OK\r\n\r\n");
+        assert_eq!(0, response.cache_max_age());
+    }
+
+    #[test]
+    fn cache_max_age_with_missing_max_age() {
+        let response = Response::new(
+            b"HTTP/1.1 200 OK\r\n\
+                                       Cache-Control: no-store\r\n\r\n",
+        );
+        assert_eq!(0, response.cache_max_age());
     }
 
     #[test]

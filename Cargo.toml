@@ -9,3 +9,4 @@ edition = "2018"
 openssl = "0.10"
 flate2 = "1.0" # gzip compression/decompression library
 encoding = "0.2"
+dirs = "3.0.2" # standard locations of directories for config, cache, and other data

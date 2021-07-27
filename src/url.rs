@@ -1,7 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub enum Scheme {
     Http,
     Https,
@@ -19,7 +19,7 @@ impl fmt::Display for Scheme {
 const DEFAULT_HTTP_PORT: u16 = 80;
 const DEFAULT_HTTPS_PORT: u16 = 443;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct Url {
     pub scheme: Scheme,
     pub host: String,
@@ -68,6 +68,16 @@ impl Url {
     }
 }
 
+impl fmt::Display for Url {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}://{}:{}{}",
+            self.scheme, self.host, self.port, self.path
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +118,17 @@ mod tests {
     fn new_url_without_scheme() {
         let result = Url::new("example.org");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn to_string_with_http() {
+        let url = Url::new("http://example.org/path").unwrap();
+        assert_eq!("http://example.org:80/path", url.to_string());
+    }
+
+    #[test]
+    fn to_string_with_https() {
+        let url = Url::new("https://example.org/path").unwrap();
+        assert_eq!("https://example.org:443/path", url.to_string());
     }
 }
