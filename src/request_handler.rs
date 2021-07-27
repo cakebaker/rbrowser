@@ -2,15 +2,13 @@ use openssl::ssl::{SslConnector, SslMethod};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io;
-use std::io::{Error, ErrorKind, Read, Write};
+use std::io::{self, Error, ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::time::SystemTime;
 
 use crate::request::Request;
 use crate::response::Response;
-use crate::url::Scheme;
-use crate::url::Url;
+use crate::url::{Scheme, Url};
 
 pub struct RequestHandler {}
 
