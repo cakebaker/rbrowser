@@ -1,9 +1,9 @@
-use openssl::ssl::{SslConnector, SslMethod};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::{self, Error, ErrorKind, Read, Write};
+use std::io::{self, ErrorKind, Read, Write};
 use std::net::TcpStream;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use crate::request::Request;
@@ -64,29 +64,41 @@ impl RequestHandler2 {
     }
 
     fn do_request(request: &Request) -> io::Result<Response> {
-        fn make_request<T: Read + Write>(request: &Request, mut stream: T) -> io::Result<Response> {
-            write!(stream, "{}", request.build())?;
-
-            let mut response = Vec::new();
-            stream.read_to_end(&mut response)?;
-
-            Ok(Response::new(&response))
-        }
-
         let url = &request.url;
         let url_to_connect = format!("{}:{}", url.host, url.port);
-        let stream = TcpStream::connect(url_to_connect)?;
+        let mut stream = TcpStream::connect(url_to_connect)?;
+        let mut response = Vec::new();
 
         if url.scheme == Scheme::Https {
-            let connector = SslConnector::builder(SslMethod::tls())?.build();
-            if let Ok(stream) = connector.connect(&url.host, stream) {
-                make_request(request, stream)
-            } else {
-                Err(Error::new(ErrorKind::Other, "SSL handshake failed."))
+            let mut config = rustls::ClientConfig::new();
+            config
+                .root_store
+                .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
+            let dns_name = webpki::DNSNameRef::try_from_ascii_str(&url.host).unwrap();
+            let mut session = rustls::ClientSession::new(&Arc::new(config), dns_name);
+
+            let mut tls = rustls::Stream::new(&mut session, &mut stream);
+            tls.write_all(request.build().as_bytes())?;
+            let reader = tls.read_to_end(&mut response);
+
+            // a cleanly closed TLS session leads to a ConnectionAborted error we simply ignore,
+            // see https://docs.rs/rustls/0.19.1/rustls/struct.ClientSession.html#method.read
+            if reader.is_err() {
+                let err = reader.err().unwrap();
+
+                if err.kind() != ErrorKind::ConnectionAborted
+                    && !err.to_string().contains("CloseNotify")
+                {
+                    return Err(err);
+                }
             }
         } else {
-            make_request(request, stream)
+            write!(stream, "{}", request.build())?;
+
+            stream.read_to_end(&mut response)?;
         }
+
+        Ok(Response::new(&response))
     }
 }
 

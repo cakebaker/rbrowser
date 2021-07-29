@@ -6,7 +6,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-openssl = "0.10"
 flate2 = "1.0" # gzip compression/decompression library
 encoding = "0.2"
 dirs = "3.0.2" # standard locations of directories for config, cache, and other data
+rustls = "0.19.1"
+webpki = "0.21.0" # library to validate certificates, using v0.21 because v0.22 doesn't seem to be compatible with rustls v0.19.1
+webpki-roots = "0.21.0" # Mozilla's root certificates, using v0.21 because v0.22 doesn't seem to be compatible with rustls v0.19.1
