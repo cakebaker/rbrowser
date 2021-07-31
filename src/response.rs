@@ -7,13 +7,13 @@ use std::str;
 
 #[derive(Debug, PartialEq)]
 pub enum HttpStatus {
-    Ok,                // 200
-    MovedPermanently,  // 301
-    Found,             // 302
-    TemporaryRedirect, // 307
-    PermanentRedirect, // 308
-    NotFound,          // 404
-    Unsupported,       // catch all for states not supported by this browser
+    Ok = 200,
+    MovedPermanently = 301,
+    Found = 302,
+    TemporaryRedirect = 307,
+    PermanentRedirect = 308,
+    NotFound = 404,
+    Unsupported = 0, // catch all for states not supported by this browser
 }
 
 type HeaderMap = HashMap<String, String>;
