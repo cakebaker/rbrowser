@@ -5,6 +5,7 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
 use std::time::SystemTime;
+use tracing::info;
 
 use crate::request::Request;
 use crate::response::Response;
@@ -39,6 +40,7 @@ impl RequestHandler2 {
         let mut temp_url;
 
         loop {
+            info!(%url, "Make request");
             let mut request = Request::new(url.clone());
             request.header("Accept-Encoding", "gzip");
 
@@ -115,15 +117,21 @@ impl Cache {
         dir.push(hashed_url.to_string());
         dir.set_extension("txt");
 
+        info!(%url, file = ?&dir, "Trying to load from cache");
+
         if let Ok(file_content) = fs::read_to_string(&dir) {
             if let Some((first_line, rest)) = file_content.split_once("\r\n") {
                 let valid_until: u64 = first_line.parse().unwrap();
 
                 if valid_until > Self::now() {
+                    info!(%url, file = ?&dir, "Loaded from cache");
+
                     return Some(rest.to_string());
                 }
             }
         }
+
+        info!(%url, "Not cached");
 
         None
     }
@@ -143,7 +151,9 @@ impl Cache {
 
         dir.push(hashed_url.to_string());
         dir.set_extension("txt");
-        fs::write(dir, &file_content).expect("Unable to write file");
+        fs::write(&dir, &file_content).expect("Unable to write file");
+
+        info!(file = ?&dir, "Wrote response to cache");
     }
 
     // from https://doc.rust-lang.org/std/hash/index.html

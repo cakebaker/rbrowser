@@ -12,3 +12,5 @@ dirs = "3.0.2" # standard locations of directories for config, cache, and other 
 rustls = "0.19.1"
 webpki = "0.21.0" # library to validate certificates, using v0.21 because v0.22 doesn't seem to be compatible with rustls v0.19.1
 webpki-roots = "0.21.0" # Mozilla's root certificates, using v0.21 because v0.22 doesn't seem to be compatible with rustls v0.19.1
+tracing = "0.1.26"
+tracing-subscriber = "0.2.19"

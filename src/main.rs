@@ -14,6 +14,8 @@ use crate::url::Url;
 use crate::url_parser::UrlParser;
 
 fn main() {
+    setup();
+
     let mut args = env::args().skip(1);
 
     let url = if let Some(arg) = args.next() {
@@ -27,4 +29,12 @@ fn main() {
         Ok(url) => Browser::load(&url),
         Err(e) => eprintln!("{}", e),
     }
+}
+
+fn setup() {
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info");
+    }
+
+    tracing_subscriber::fmt::init();
 }
