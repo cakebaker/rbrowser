@@ -32,6 +32,11 @@ fn main() {
             std::process::exit(1);
         }
     }
+
+    // TODO remove this feature flag once the GUI does more than just showing an empty window
+    if env::var("GUI").is_ok() {
+        Browser::new();
+    }
 }
 
 fn setup() {

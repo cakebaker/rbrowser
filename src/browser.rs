@@ -1,3 +1,6 @@
+use gtk::gio::ApplicationFlags;
+use gtk::prelude::*;
+use gtk::{Application, ApplicationWindow};
 use std::str;
 
 use crate::request_handler::RequestHandler;
@@ -7,6 +10,27 @@ use crate::url_parser::UrlType;
 pub struct Browser {}
 
 impl Browser {
+    pub fn new() -> Self {
+        let app = Application::new(
+            Some("com.github.cakebaker.rbrowser"),
+            ApplicationFlags::default(),
+        );
+        app.connect_activate(|app| {
+            let window = ApplicationWindow::builder()
+                .application(app)
+                .default_width(800)
+                .default_height(600)
+                .title("rbrowser")
+                .build();
+
+            window.show();
+        });
+
+        // have to pass an empty vec to disable command line parsing of Application
+        app.run_with_args(&<Vec<&str>>::new());
+        Self {}
+    }
+
     pub fn load(url_type: &UrlType) {
         match url_type {
             UrlType::Http(url) => match RequestHandler::request(url) {
