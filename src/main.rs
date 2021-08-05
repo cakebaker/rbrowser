@@ -27,7 +27,10 @@ fn main() {
 
     match url {
         Ok(url) => Browser::load(&url),
-        Err(e) => eprintln!("{}", e),
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
     }
 }
 
