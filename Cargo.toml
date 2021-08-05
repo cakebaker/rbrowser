@@ -2,6 +2,10 @@
 name = "rbrowser"
 version = "0.1.0"
 edition = "2018"
+authors = ["Daniel Hofstetter <dhofstet@gmail.com>"]
+description = "A simple browser (based on the book 'Web Browser Engineering')"
+license = "MIT"
+repository = "https://github.com/cakebaker/rbrowser"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
