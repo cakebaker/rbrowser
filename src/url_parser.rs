@@ -1,3 +1,4 @@
+use crate::url::UrlError;
 use crate::Url;
 
 #[derive(Debug)]
@@ -14,14 +15,14 @@ pub enum UrlType {
 pub struct UrlParser {}
 
 impl UrlParser {
-    pub fn parse(url: &str) -> Result<UrlType, &'static str> {
+    pub fn parse(url: &str) -> Result<UrlType, UrlError> {
         if url.starts_with("http://") || url.starts_with("https://") {
             Ok(UrlType::Http(Url::new(url)?))
         } else if let Some(stripped) = url.strip_prefix("view-source:") {
             Ok(UrlType::ViewSource(Url::new(stripped)?))
         } else {
             url.strip_prefix("data:")
-                .map_or(Err("Unknown scheme"), |stripped| {
+                .map_or(Err(UrlError::UnknownScheme), |stripped| {
                     Self::parse_data_url(stripped)
                 })
         }
@@ -29,9 +30,9 @@ impl UrlParser {
 
     // Function expects a string in the form: [<mediatype>][;base64],<data> and always returns an UrlType::Data
     // see also https://datatracker.ietf.org/doc/html/rfc2397
-    fn parse_data_url(s: &str) -> Result<UrlType, &'static str> {
+    fn parse_data_url(s: &str) -> Result<UrlType, UrlError> {
         if !s.contains(',') {
-            return Err("Invalid data url");
+            return Err(UrlError::InvalidDataUrlFormat);
         }
         let mut split = s.splitn(2, ',');
         let mut base64 = false;
