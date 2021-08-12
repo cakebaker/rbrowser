@@ -1,5 +1,5 @@
 use gtk::gio::ApplicationFlags;
-use gtk::prelude::*;
+use gtk::{prelude::*, DrawingArea};
 use gtk::{Application, ApplicationWindow};
 use std::str;
 
@@ -23,12 +23,37 @@ impl Browser {
                 .title("rbrowser")
                 .build();
 
+            let area = DrawingArea::new();
+            area.set_draw_func(Self::draw);
+            window.set_child(Some(&area));
+
             window.show();
         });
 
         // have to pass an empty vec to disable command line parsing of Application
         app.run_with_args(&<Vec<&str>>::new());
         Self {}
+    }
+
+    fn draw(_: &DrawingArea, ctx: &gtk::cairo::Context, _: i32, _: i32) {
+        ctx.set_line_width(5.0);
+
+        ctx.save();
+        ctx.arc(105.0, 105.0, 100.0, 0.0, 360.0);
+        ctx.set_source_rgb(0.0, 0.8, 0.8);
+        ctx.fill_preserve();
+        ctx.restore();
+        ctx.stroke();
+
+        ctx.save();
+        ctx.rectangle(5.0, 5.0, 400.0, 300.0);
+        ctx.set_source_rgba(0.0, 0.0, 0.8, 0.6);
+        ctx.fill_preserve();
+        ctx.restore();
+        ctx.stroke();
+
+        ctx.move_to(200.0, 150.0);
+        ctx.show_text("hello");
     }
 
     pub fn load(url_type: &UrlType) {
