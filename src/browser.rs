@@ -43,8 +43,23 @@ impl Browser {
             let area = DrawingArea::new();
             #[allow(unused_must_use)]
             area.set_draw_func(move |_, ctx, _, _| {
-                ctx.move_to(15.0, 15.0);
-                ctx.show_text(&content);
+                // TODO replace magic numbers
+                let horizontal_step = 13.0;
+                let vertical_step = 18.0;
+                let mut cursor_x = horizontal_step;
+                let mut cursor_y = vertical_step;
+
+                for c in content.chars() {
+                    ctx.move_to(cursor_x, cursor_y);
+                    ctx.show_text(&c.to_string());
+                    cursor_x += horizontal_step;
+
+                    // TODO replace magic number
+                    if cursor_x >= 800.0 - horizontal_step {
+                        cursor_x = horizontal_step;
+                        cursor_y += vertical_step;
+                    }
+                }
             });
             window.set_child(Some(&area));
 
