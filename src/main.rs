@@ -26,16 +26,16 @@ fn main() {
     };
 
     match url {
-        Ok(url) => Browser::load(&url),
+        Ok(url) => {
+            if let Err(e) = Browser::load(&url) {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
+        }
         Err(e) => {
             eprintln!("{}", e);
             std::process::exit(1);
         }
-    }
-
-    // TODO remove this feature flag once the GUI does more than just showing an empty window
-    if env::var("GUI").is_ok() {
-        Browser::new();
     }
 }
 

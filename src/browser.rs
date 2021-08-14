@@ -1,6 +1,7 @@
 use gtk::gio::ApplicationFlags;
 use gtk::{prelude::*, DrawingArea};
 use gtk::{Application, ApplicationWindow};
+use std::io;
 use std::str;
 
 use crate::request_handler::RequestHandler;
@@ -10,12 +11,28 @@ use crate::url_parser::UrlType;
 pub struct Browser {}
 
 impl Browser {
-    pub fn new() -> Self {
+    pub fn load(url_type: &UrlType) -> io::Result<()> {
+        let output = match url_type {
+            UrlType::Http(url) => Self::lex(&RequestHandler::request(url)?),
+            UrlType::ViewSource(url) => RequestHandler::request(url)?,
+            UrlType::Data {
+                mediatype: _,
+                base64: _,
+                data,
+            } => Self::lex(data),
+        };
+
+        Self::build_ui(output);
+        Ok(())
+    }
+
+    fn build_ui(content: String) {
         let app = Application::new(
             Some("com.github.cakebaker.rbrowser"),
             ApplicationFlags::default(),
         );
-        app.connect_activate(|app| {
+        app.connect_activate(move |app| {
+            let content = content.clone();
             let window = ApplicationWindow::builder()
                 .application(app)
                 .default_width(800)
@@ -24,7 +41,11 @@ impl Browser {
                 .build();
 
             let area = DrawingArea::new();
-            area.set_draw_func(Self::draw);
+            #[allow(unused_must_use)]
+            area.set_draw_func(move |_, ctx, _, _| {
+                ctx.move_to(15.0, 15.0);
+                ctx.show_text(&content);
+            });
             window.set_child(Some(&area));
 
             window.show();
@@ -32,52 +53,12 @@ impl Browser {
 
         // have to pass an empty vec to disable command line parsing of Application
         app.run_with_args(&<Vec<&str>>::new());
-        Self {}
     }
 
-    fn draw(_: &DrawingArea, ctx: &gtk::cairo::Context, _: i32, _: i32) {
-        ctx.set_line_width(5.0);
-
-        ctx.save();
-        ctx.arc(105.0, 105.0, 100.0, 0.0, 360.0);
-        ctx.set_source_rgb(0.0, 0.8, 0.8);
-        ctx.fill_preserve();
-        ctx.restore();
-        ctx.stroke();
-
-        ctx.save();
-        ctx.rectangle(5.0, 5.0, 400.0, 300.0);
-        ctx.set_source_rgba(0.0, 0.0, 0.8, 0.6);
-        ctx.fill_preserve();
-        ctx.restore();
-        ctx.stroke();
-
-        ctx.move_to(200.0, 150.0);
-        ctx.show_text("hello");
-    }
-
-    pub fn load(url_type: &UrlType) {
-        match url_type {
-            UrlType::Http(url) => match RequestHandler::request(url) {
-                Ok(response) => Self::show(&response),
-                Err(e) => eprintln!("{}", e),
-            },
-            UrlType::ViewSource(url) => match RequestHandler::request(url) {
-                Ok(response) => println!("{}", response),
-                Err(e) => eprintln!("{}", e),
-            },
-            UrlType::Data {
-                mediatype: _,
-                base64: _,
-                data,
-            } => Self::show(data),
-        }
-    }
-
-    fn show(s: &str) {
+    fn lex(s: &str) -> String {
         let body = Self::get_body(s);
         let body = Self::remove_tags(body);
-        println!("{}", Self::replace_entities(&body));
+        Self::replace_entities(&body)
     }
 
     // Returns either the input string if there is no body tag, or the content between the body
