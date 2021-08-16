@@ -7,6 +7,11 @@ use std::str;
 use crate::request_handler::RequestHandler;
 use crate::url_parser::UrlType;
 
+#[derive(Clone)]
+struct Position(f64, f64);
+
+type DisplayList = Vec<(Position, char)>;
+
 #[derive(Debug)]
 pub struct Browser {}
 
@@ -22,17 +27,17 @@ impl Browser {
             } => Self::lex(data),
         };
 
-        Self::build_ui(output);
+        Self::build_ui(Self::layout(&output));
         Ok(())
     }
 
-    fn build_ui(content: String) {
+    fn build_ui(display_list: DisplayList) {
         let app = Application::new(
             Some("com.github.cakebaker.rbrowser"),
             ApplicationFlags::default(),
         );
         app.connect_activate(move |app| {
-            let content = content.clone();
+            let display_list = display_list.clone();
             let window = ApplicationWindow::builder()
                 .application(app)
                 .default_width(800)
@@ -43,22 +48,9 @@ impl Browser {
             let area = DrawingArea::new();
             #[allow(unused_must_use)]
             area.set_draw_func(move |_, ctx, _, _| {
-                // TODO replace magic numbers
-                let horizontal_step = 13.0;
-                let vertical_step = 18.0;
-                let mut cursor_x = horizontal_step;
-                let mut cursor_y = vertical_step;
-
-                for c in content.chars() {
-                    ctx.move_to(cursor_x, cursor_y);
-                    ctx.show_text(&c.to_string());
-                    cursor_x += horizontal_step;
-
-                    // TODO replace magic number
-                    if cursor_x >= 800.0 - horizontal_step {
-                        cursor_x = horizontal_step;
-                        cursor_y += vertical_step;
-                    }
+                for (Position(x, y), ch) in &display_list {
+                    ctx.move_to(*x, *y);
+                    ctx.show_text(&ch.to_string());
                 }
             });
             window.set_child(Some(&area));
@@ -68,6 +60,28 @@ impl Browser {
 
         // have to pass an empty vec to disable command line parsing of Application
         app.run_with_args(&<Vec<&str>>::new());
+    }
+
+    fn layout(s: &str) -> DisplayList {
+        let mut display_list = Vec::with_capacity(s.len());
+        // TODO replace magic numbers
+        let horizontal_step = 13.0;
+        let vertical_step = 18.0;
+        let mut cursor_x = horizontal_step;
+        let mut cursor_y = vertical_step;
+
+        for c in s.chars() {
+            display_list.push((Position(cursor_x, cursor_y), c));
+            cursor_x += horizontal_step;
+
+            // TODO replace magic number
+            if cursor_x >= 800.0 - horizontal_step {
+                cursor_x = horizontal_step;
+                cursor_y += vertical_step;
+            }
+        }
+
+        display_list
     }
 
     fn lex(s: &str) -> String {
