@@ -20,5 +20,5 @@ tracing = "0.1.26"
 tracing-subscriber = "0.2.20"
 
 [dependencies.gtk]
-version = "0.2"
+version = "0.3"
 package = "gtk4"
