@@ -1,7 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
+use std::convert::TryInto;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::{self, ErrorKind, Read, Write};
+use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -72,28 +73,29 @@ impl RequestHandler2 {
         let mut response = Vec::new();
 
         if url.scheme == Scheme::Https {
-            let mut config = rustls::ClientConfig::new();
-            config
-                .root_store
-                .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-            let dns_name = webpki::DNSNameRef::try_from_ascii_str(&url.host).unwrap();
-            let mut session = rustls::ClientSession::new(&Arc::new(config), dns_name);
+            let mut root_store = rustls::RootCertStore::empty();
+            root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+                |ta| {
+                    rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                        ta.subject,
+                        ta.spki,
+                        ta.name_constraints,
+                    )
+                },
+            ));
 
-            let mut tls = rustls::Stream::new(&mut session, &mut stream);
+            let config = rustls::ClientConfig::builder()
+                .with_safe_defaults()
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
+
+            let rc_config = Arc::new(config);
+            let hostname = url.host.as_str().try_into().unwrap();
+            let mut client = rustls::ClientConnection::new(rc_config, hostname).unwrap();
+
+            let mut tls = rustls::Stream::new(&mut client, &mut stream);
             tls.write_all(request.build().as_bytes())?;
-            let reader = tls.read_to_end(&mut response);
-
-            // a cleanly closed TLS session leads to a ConnectionAborted error we simply ignore,
-            // see https://docs.rs/rustls/0.19.1/rustls/struct.ClientSession.html#method.read
-            if reader.is_err() {
-                let err = reader.err().unwrap();
-
-                if err.kind() != ErrorKind::ConnectionAborted
-                    && !err.to_string().contains("CloseNotify")
-                {
-                    return Err(err);
-                }
-            }
+            tls.read_to_end(&mut response)?;
         } else {
             write!(stream, "{}", request.build())?;
 
