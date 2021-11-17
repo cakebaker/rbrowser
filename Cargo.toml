@@ -13,11 +13,11 @@ repository = "https://github.com/cakebaker/rbrowser"
 flate2 = "1.0" # gzip compression/decompression library
 encoding = "0.2"
 dirs = "4.0.0" # standard locations of directories for config, cache, and other data
-rustls = "0.20.0"
+rustls = "0.20.1"
 webpki = "0.22.0" # library to validate certificates
-webpki-roots = "0.22.0" # Mozilla's root certificates
+webpki-roots = "0.22.1" # Mozilla's root certificates
 tracing = "0.1.28"
-tracing-subscriber = "0.2.24"
+tracing-subscriber = "0.3.1"
 
 [dependencies.gtk]
 version = "0.3"
